@@ -1,201 +1,854 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  Zap, 
-  Database, 
-  Server, 
+  Sun, 
+  Moon, 
+  Search, 
+  Plus, 
+  Trash2, 
+  Package, 
+  Shirt, 
   Layers, 
   CheckCircle2, 
-  ArrowRight, 
-  Terminal, 
-  ShieldCheck,
-  Globe,
-  Cpu
+  AlertTriangle, 
+  XCircle, 
+  RefreshCw, 
+  ExternalLink,
+  Filter,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 
 export default function App() {
-  const [backendStatus, setBackendStatus] = useState({
-    loading: true,
-    online: false,
-    message: '',
-    tech: ''
+  // Theme state: dark or light
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('theme') || 'dark';
   });
 
+  // Active Tab: 'verificador' | 'pecas' | 'estampas'
+  const [activeTab, setActiveTab] = useState('verificador');
+
+  // Brands State
+  const [brands, setBrands] = useState([]);
+  const [selectedBrand, setSelectedBrand] = useState(''); // '' = Todas
+
+  // Data States
+  const [estampas, setEstampas] = useState([]);
+  const [pecasProntas, setPecasProntas] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Verificador / Quick SKU Search
+  const [skuSearch, setSkuSearch] = useState('CM-001-PRE-M');
+  const [verificacaoResult, setVerificacaoResult] = useState(null);
+  const [verificando, setVerificando] = useState(false);
+
+  // Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState('peca'); // 'peca' | 'estampa'
+  const [formData, setFormData] = useState({});
+
+  // Sync Theme class on <html>
   useEffect(() => {
-    fetch('/api/health')
-      .then((res) => {
-        if (!res.ok) throw new Error('Backend response error');
-        return res.json();
-      })
-      .then((data) => {
-        setBackendStatus({
-          loading: false,
-          online: true,
-          message: data.message || 'Operativo',
-          tech: data.backend || 'Flask + SQLAlchemy'
-        });
-      })
-      .catch((err) => {
-        console.warn('Backend server offline or starting:', err);
-        setBackendStatus({
-          loading: false,
-          online: false,
-          message: 'Backend local no detectado (ejecuta app.py o docker-compose)',
-          tech: 'Flask + SQLAlchemy'
-        });
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
+  // Fetch initial data
+  useEffect(() => {
+    fetchBrands();
+    fetchEstampas();
+    fetchPecasProntas();
+  }, [selectedBrand]);
+
+  const fetchBrands = async () => {
+    try {
+      const res = await fetch('/api/brands');
+      if (res.ok) {
+        const data = await res.json();
+        setBrands(data);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar marcas:', err);
+    }
+  };
+
+  const fetchEstampas = async () => {
+    setLoading(true);
+    try {
+      const url = selectedBrand ? `/api/estampas?brand_id=${selectedBrand}` : '/api/estampas';
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setEstampas(data);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar estampas:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPecasProntas = async () => {
+    setLoading(true);
+    try {
+      const url = selectedBrand ? `/api/pecas-prontas?brand_id=${selectedBrand}` : '/api/pecas-prontas';
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setPecasProntas(data);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar peças prontas:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Execute SKU Search Verification
+  const handleVerificarSKU = async (e) => {
+    if (e) e.preventDefault();
+    if (!skuSearch.trim()) return;
+
+    setVerificando(true);
+    try {
+      const url = `/api/verificar-disponibilidade?sku=${encodeURIComponent(skuSearch.trim())}${selectedBrand ? `&brand_id=${selectedBrand}` : ''}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setVerificacaoResult(data);
+      }
+    } catch (err) {
+      console.error('Erro na verificação de SKU:', err);
+    } finally {
+      setVerificando(false);
+    }
+  };
+
+  // Auto verify default SKU on load
+  useEffect(() => {
+    handleVerificarSKU();
+  }, [selectedBrand]);
+
+  // Adjust Quantity (+1 or -1)
+  const handleAjustarQtdPeca = async (id, delta) => {
+    const peca = pecasProntas.find(p => p.id === id);
+    if (!peca) return;
+    const novaQtd = Math.max(0, peca.quantidade + delta);
+    
+    try {
+      const res = await fetch(`/api/pecas-prontas/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantidade: novaQtd })
       });
-  }, []);
+      if (res.ok) {
+        fetchPecasProntas();
+        handleVerificarSKU();
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar quantidade:', err);
+    }
+  };
+
+  const handleAjustarQtdEstampa = async (id, delta) => {
+    const estampa = estampas.find(e => e.id === id);
+    if (!estampa) return;
+    const novaQtd = Math.max(0, estampa.quantidade + delta);
+
+    try {
+      const res = await fetch(`/api/estampas/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantidade: novaQtd })
+      });
+      if (res.ok) {
+        fetchEstampas();
+        handleVerificarSKU();
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar cantidad de estampa:', err);
+    }
+  };
+
+  // Delete handlers
+  const handleDeletarPeca = async (id) => {
+    if (!confirm('Deseja realmente remover este SKU do estoque?')) return;
+    try {
+      const res = await fetch(`/api/pecas-prontas/${id}`, { method: 'DELETE' });
+      if (res.ok) fetchPecasProntas();
+    } catch (err) {
+      console.error('Erro ao deletar peça:', err);
+    }
+  };
+
+  const handleDeletarEstampa = async (id) => {
+    if (!confirm('Deseja realmente remover esta estampa do estoque?')) return;
+    try {
+      const res = await fetch(`/api/estampas/${id}`, { method: 'DELETE' });
+      if (res.ok) fetchEstampas();
+    } catch (err) {
+      console.error('Erro ao deletar estampa:', err);
+    }
+  };
+
+  // Form Submission
+  const handleSalvarModal = async (e) => {
+    e.preventDefault();
+    const endpoint = modalType === 'peca' ? '/api/pecas-prontas' : '/api/estampas';
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          brand_id: Number(formData.brand_id || brands[0]?.id || 1)
+        })
+      });
+      if (res.ok) {
+        setShowModal(false);
+        setFormData({});
+        if (modalType === 'peca') fetchPecasProntas();
+        else fetchEstampas();
+        handleVerificarSKU();
+      } else {
+        const errData = await res.json();
+        alert(errData.erro || 'Erro ao salvar registro');
+      }
+    } catch (err) {
+      console.error('Erro no salvamento:', err);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white relative overflow-hidden">
-      {/* Background ambient lighting */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-indigo-600/20 via-purple-600/10 to-transparent blur-3xl pointer-events-none rounded-full" />
-      <div className="absolute top-1/3 -right-40 w-[400px] h-[400px] bg-cyan-500/10 blur-3xl pointer-events-none rounded-full" />
-
-      {/* Navigation Bar */}
-      <header className="border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-50 bg-slate-950/70">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col justify-between transition-colors duration-200">
+      
+      {/* HEADER / NAVBAR */}
+      <header className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          
+          {/* Logo & Title */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 p-[1px] shadow-lg shadow-indigo-500/20">
-              <div className="w-full h-full bg-slate-950 rounded-[11px] flex items-center justify-center">
-                <Layers className="w-5 h-5 text-indigo-400" />
-              </div>
+            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-bold">
+              <Shirt className="w-5 h-5" />
             </div>
-            <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-              HC_comp
-            </span>
-            <span className="px-2 py-0.5 text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full">
-              v0.1
-            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
+                  HC_comp Estoque
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                  pt-BR
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                Gestão Pronta & Estampas (Clube Rock & Ride Nation)
+              </p>
+            </div>
           </div>
 
+          {/* Controls: Brand Selector + Theme Toggle */}
           <div className="flex items-center gap-3">
-            {/* Status indicator */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs font-medium">
-              <span className={`w-2 h-2 rounded-full ${backendStatus.online ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-              <span className="text-slate-300">
-                {backendStatus.loading 
-                  ? 'Verificando Backend...' 
-                  : backendStatus.online 
-                    ? 'API Conectada' 
-                    : 'Modo Standalone'}
-              </span>
+            {/* Filter by Brand */}
+            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+              <Filter className="w-3.5 h-3.5 text-slate-400 ml-2" />
+              <select
+                value={selectedBrand}
+                onChange={(e) => setSelectedBrand(e.target.value)}
+                className="bg-transparent font-medium text-slate-700 dark:text-slate-200 focus:outline-none pr-3 cursor-pointer"
+              >
+                <option value="" className="bg-white dark:bg-slate-900">Todas as Marcas</option>
+                {brands.map(b => (
+                  <option key={b.id} value={b.id} className="bg-white dark:bg-slate-900">{b.name}</option>
+                ))}
+              </select>
             </div>
+
+            {/* Toggle Sol / Lua (Tema Claro / Escuro) */}
+            <button
+              onClick={toggleTheme}
+              title={`Alternar para modo ${theme === 'dark' ? 'Claro' : 'Escuro'}`}
+              className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-indigo-600" />
+              )}
+            </button>
           </div>
+
         </div>
       </header>
 
-      {/* Main Hero Section */}
-      <main className="max-w-6xl mx-auto px-6 py-20 flex-1 flex flex-col items-center justify-center text-center relative z-10">
-        
-        {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/80 border border-indigo-500/30 backdrop-blur-md mb-8 shadow-inner shadow-indigo-500/5">
-          <ShieldCheck className="w-4 h-4 text-indigo-400" />
-          <span className="text-xs font-semibold tracking-wide text-slate-300 uppercase">
-            Arquitectura Full-Stack Lista
-          </span>
-        </div>
-
-        {/* Central Main Headline */}
-        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight max-w-4xl leading-[1.1] mb-6">
-          <span className="bg-gradient-to-b from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
-            Todo esta listo para comenzar a crear tu gran proyecto.
-          </span>
-        </h1>
-
-        {/* Subtitle */}
-        <p className="text-lg sm:text-xl text-slate-400 max-w-2xl font-normal leading-relaxed mb-12">
-          Entorno preconfigurado de alto rendimiento integrando React, Vite, Tailwind CSS, Python Flask y SQLAlchemy gestionado con Bun y UV.
-        </p>
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center justify-center gap-4 mb-16">
-          <a 
-            href="#stack"
-            className="group px-6 py-3.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-medium text-sm shadow-xl shadow-indigo-500/25 transition-all duration-200 flex items-center gap-2 cursor-pointer"
+      {/* NAVIGATION TABS */}
+      <div className="bg-white dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
+        <div className="max-w-7xl mx-auto px-6 flex items-center gap-2 pt-3">
+          <button
+            onClick={() => setActiveTab('verificador')}
+            className={`px-4 py-2.5 font-semibold text-xs rounded-t-xl transition-all flex items-center gap-2 border-b-2 ${
+              activeTab === 'verificador'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/30'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
           >
-            Explorar Stack Integrado
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-          </a>
-          <a
-            href="https://github.com"
-            target="_blank"
-            rel="noreferrer"
-            className="px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 text-slate-300 font-medium text-sm transition-all duration-200 flex items-center gap-2"
+            <Sparkles className="w-4 h-4" />
+            Verificador de Envio (SKU)
+          </button>
+          <button
+            onClick={() => setActiveTab('pecas')}
+            className={`px-4 py-2.5 font-semibold text-xs rounded-t-xl transition-all flex items-center gap-2 border-b-2 ${
+              activeTab === 'pecas'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/30'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
           >
-            <Terminal className="w-4 h-4 text-slate-400" />
-            Configuración Local
-          </a>
+            <Shirt className="w-4 h-4" />
+            Peças Prontas ({pecasProntas.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('estampas')}
+            className={`px-4 py-2.5 font-semibold text-xs rounded-t-xl transition-all flex items-center gap-2 border-b-2 ${
+              activeTab === 'estampas'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/30'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            Estampas Avulsas ({estampas.length})
+          </button>
         </div>
+      </div>
 
-        {/* Tech Stack Cards Grid */}
-        <div id="stack" className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-left">
-          
-          {/* Card 1: Frontend */}
-          <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-sm hover:border-indigo-500/40 transition-colors group">
-            <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mb-4 text-cyan-400 group-hover:scale-110 transition-transform">
-              <Zap className="w-5 h-5" />
+      {/* MAIN CONTENT AREA */}
+      <main className="max-w-7xl mx-auto px-6 py-8 flex-1 w-full">
+
+        {/* ------------------------------------------------------------- */}
+        {/* ABA 1: VERIFICADOR DE DISPONIBILIDADE E PRONTO PARA ENVIO     */}
+        {/* ------------------------------------------------------------- */}
+        {activeTab === 'verificador' && (
+          <div className="space-y-8 max-w-4xl mx-auto">
+
+            {/* Banner de Boas-Vindas */}
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                Verificação Rápida de Estoque
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-lg mx-auto">
+                Consulte o SKU da peça do pedido para confirmar envio imediato ou se a estampa está disponível para montagem rápida.
+              </p>
             </div>
-            <h3 className="font-semibold text-white mb-1">Frontend</h3>
-            <p className="text-xs text-slate-400 mb-3">React + Vite + Tailwind CSS</p>
-            <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Gestor Bun v1.2+
+
+            {/* Barra de Busca de SKU */}
+            <form onSubmit={handleVerificarSKU} className="relative max-w-xl mx-auto flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={skuSearch}
+                  onChange={(e) => setSkuSearch(e.target.value.toUpperCase())}
+                  placeholder="Digite o SKU (ex: CM-001-PRE-M, MO-010-PRE-P)"
+                  className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-2xl shadow-sm text-sm font-mono font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase tracking-wider"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={verificando}
+                className="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-2xl shadow-lg shadow-indigo-500/25 transition-all flex items-center gap-2"
+              >
+                {verificando ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Verificar'}
+              </button>
+            </form>
+
+            {/* Chips de Exemplo */}
+            <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+              <span className="text-slate-400 font-medium">Exemplos rápidos:</span>
+              {['CM-001-PRE-M', 'CM-001-PRE-G', 'MO-002-BRA-L', 'CM-010-PRE-G', 'CF-011-BRA-M'].map((exSku) => (
+                <button
+                  key={exSku}
+                  onClick={() => { setSkuSearch(exSku); }}
+                  className="px-3 py-1 bg-slate-200/60 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-slate-700 font-mono rounded-lg transition-colors text-slate-700 dark:text-slate-300"
+                >
+                  {exSku}
+                </button>
+              ))}
             </div>
+
+            {/* CARD DE RESULTADO DA VERIFICAÇÃO */}
+            {verificacaoResult && (
+              <div className="p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
+                
+                {/* Header do Card com Badge */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      SKU Consultado ({verificacaoResult.brand_name})
+                    </span>
+                    <h3 className="text-3xl font-black font-mono tracking-tight text-slate-900 dark:text-white mt-1">
+                      {verificacaoResult.sku}
+                    </h3>
+                  </div>
+
+                  {/* Badge de Status Principal */}
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-sm shadow-sm ${
+                    verificacaoResult.badge_color === 'emerald'
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                      : verificacaoResult.badge_color === 'amber'
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
+                  }`}>
+                    {verificacaoResult.badge_color === 'emerald' && <CheckCircle2 className="w-5 h-5" />}
+                    {verificacaoResult.badge_color === 'amber' && <AlertTriangle className="w-5 h-5" />}
+                    {verificacaoResult.badge_color === 'rose' && <XCircle className="w-5 h-5" />}
+                    <span>{verificacaoResult.status_label}</span>
+                  </div>
+                </div>
+
+                {/* Mensagem Explicativa */}
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-950/60 p-4 rounded-xl border border-slate-100 dark:border-slate-800/80">
+                  {verificacaoResult.mensagem}
+                </p>
+
+                {/* Grid Comparativo: Peça Pronta vs Estampa Avulsa */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  
+                  {/* Qtd Peça Pronta */}
+                  <div className={`p-5 rounded-2xl border ${
+                    verificacaoResult.peca_pronta_qtd > 0 
+                      ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50' 
+                      : 'bg-slate-50 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800'
+                  }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        1. PEÇA PRONTA (Estampada)
+                      </span>
+                      <Shirt className="w-4 h-4 text-slate-400" />
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-extrabold">{verificacaoResult.peca_pronta_qtd}</span>
+                      <span className="text-xs text-slate-500 font-medium">unidades no estoque</span>
+                    </div>
+                  </div>
+
+                  {/* Qtd Estampa Avulsa */}
+                  <div className={`p-5 rounded-2xl border ${
+                    verificacaoResult.estampa_qtd > 0 
+                      ? 'bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50' 
+                      : 'bg-slate-50 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800'
+                  }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        2. ESTAMPA AVULSA ({verificacaoResult.codigo_estampa})
+                      </span>
+                      <Layers className="w-4 h-4 text-slate-400" />
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-extrabold">{verificacaoResult.estampa_qtd}</span>
+                      <span className="text-xs text-slate-500 font-medium">unidades disponíveis</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2 truncate">
+                      Design: {verificacaoResult.nome_design_estampa}
+                    </p>
+                  </div>
+
+                </div>
+
+              </div>
+            )}
+
           </div>
+        )}
 
-          {/* Card 2: Backend */}
-          <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-sm hover:border-indigo-500/40 transition-colors group">
-            <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-4 text-indigo-400 group-hover:scale-110 transition-transform">
-              <Server className="w-5 h-5" />
+        {/* ------------------------------------------------------------- */}
+        {/* ABA 2: PEÇAS PRONTAS (PRODUTOS STAMPADOS PRONTOS)             */}
+        {/* ------------------------------------------------------------- */}
+        {activeTab === 'pecas' && (
+          <div className="space-y-6">
+            
+            {/* Action Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold">Estoque de Peças Prontas</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Camisetas e moletons já estampados e prontos para embalar e enviar.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setModalType('peca');
+                  setFormData({ tipo: 'CM', cor: 'PRE', tamanho: 'M', quantidade: 1, brand_id: brands[0]?.id || 1 });
+                  setShowModal(true);
+                }}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Cadastrar Nova Peça Pronta
+              </button>
             </div>
-            <h3 className="font-semibold text-white mb-1">Backend API</h3>
-            <p className="text-xs text-slate-400 mb-3">Python 3 + Flask + CORS</p>
-            <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Gestor UV (Astral)
+
+            {/* Data Table */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">
+                    <tr>
+                      <th className="px-6 py-3.5">SKU Completo</th>
+                      <th className="px-6 py-3.5">Tipo</th>
+                      <th className="px-6 py-3.5">Cód. Estampa</th>
+                      <th className="px-6 py-3.5">Cor</th>
+                      <th className="px-6 py-3.5">Tamanho</th>
+                      <th className="px-6 py-3.5">Marca</th>
+                      <th className="px-6 py-3.5">Qtd Estoque</th>
+                      <th className="px-6 py-3.5 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                    {pecasProntas.length === 0 ? (
+                      <tr>
+                        <td colSpan="8" className="px-6 py-8 text-center text-slate-400">
+                          Nenhuma peça pronta cadastrada para esta seleção.
+                        </td>
+                      </tr>
+                    ) : (
+                      pecasProntas.map((peca) => (
+                        <tr key={peca.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="px-6 py-4 font-mono font-bold text-slate-900 dark:text-white">
+                            {peca.sku}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold">
+                              {peca.tipo}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+                            {peca.codigo_estampa}
+                          </td>
+                          <td className="px-6 py-4">{peca.cor}</td>
+                          <td className="px-6 py-4">
+                            <span className="font-bold">{peca.tamanho}</span>
+                          </td>
+                          <td className="px-6 py-4 text-slate-500">{peca.brand_name}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleAjustarQtdPeca(peca.id, -1)}
+                                className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold"
+                              >
+                                -
+                              </button>
+                              <span className={`w-8 text-center font-bold text-sm ${peca.quantidade === 0 ? 'text-rose-500' : ''}`}>
+                                {peca.quantidade}
+                              </span>
+                              <button
+                                onClick={() => handleAjustarQtdPeca(peca.id, 1)}
+                                className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => handleDeletarPeca(peca.id)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                              title="Deletar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
+
           </div>
+        )}
 
-          {/* Card 3: Database & ORM */}
-          <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-sm hover:border-indigo-500/40 transition-colors group">
-            <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-4 text-purple-400 group-hover:scale-110 transition-transform">
-              <Database className="w-5 h-5" />
+        {/* ------------------------------------------------------------- */}
+        {/* ABA 3: ESTAMPAS AVULSA (INSUMO DE ESTAMPA)                    */}
+        {/* ------------------------------------------------------------- */}
+        {activeTab === 'estampas' && (
+          <div className="space-y-6">
+            
+            {/* Action Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold">Estoque de Estampas Avulsas</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Estampas individuais (formato NUM-COR) estocadas para aplicação rápida sob demanda.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setModalType('estampa');
+                  setFormData({ cor: 'PRE', quantidade: 10, brand_id: brands[0]?.id || 1 });
+                  setShowModal(true);
+                }}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Cadastrar Nova Estampa
+              </button>
             </div>
-            <h3 className="font-semibold text-white mb-1">ORM & BD</h3>
-            <p className="text-xs text-slate-400 mb-3">SQLAlchemy ORM</p>
-            <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Modelos Inicializados
+
+            {/* Data Table */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">
+                    <tr>
+                      <th className="px-6 py-3.5">Código Estampa</th>
+                      <th className="px-6 py-3.5">Nome do Design</th>
+                      <th className="px-6 py-3.5">Cor</th>
+                      <th className="px-6 py-3.5">Marca</th>
+                      <th className="px-6 py-3.5">Qtd Disponível</th>
+                      <th className="px-6 py-3.5 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                    {estampas.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="px-6 py-8 text-center text-slate-400">
+                          Nenhuma estampa cadastrada para esta seleção.
+                        </td>
+                      </tr>
+                    ) : (
+                      estampas.map((estampa) => (
+                        <tr key={estampa.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="px-6 py-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                            {estampa.codigo_estampa}
+                          </td>
+                          <td className="px-6 py-4 text-slate-900 dark:text-white font-semibold">
+                            {estampa.nome_design}
+                          </td>
+                          <td className="px-6 py-4">{estampa.cor}</td>
+                          <td className="px-6 py-4 text-slate-500">{estampa.brand_name}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleAjustarQtdEstampa(estampa.id, -1)}
+                                className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold"
+                              >
+                                -
+                              </button>
+                              <span className={`w-8 text-center font-bold text-sm ${estampa.quantidade === 0 ? 'text-rose-500' : ''}`}>
+                                {estampa.quantidade}
+                              </span>
+                              <button
+                                onClick={() => handleAjustarQtdEstampa(estampa.id, 1)}
+                                className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => handleDeletarEstampa(estampa.id)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                              title="Deletar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
+
           </div>
-
-          {/* Card 4: Devops & Deploy */}
-          <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-sm hover:border-indigo-500/40 transition-colors group">
-            <div className="w-10 h-10 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center mb-4 text-pink-400 group-hover:scale-110 transition-transform">
-              <Globe className="w-5 h-5" />
-            </div>
-            <h3 className="font-semibold text-white mb-1">Despliegue</h3>
-            <p className="text-xs text-slate-400 mb-3">Docker + Vercel Ready</p>
-            <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Docker-compose Activo
-            </div>
-          </div>
-
-        </div>
+        )}
 
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-900 py-6 bg-slate-950/80 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-slate-600" />
-            <span>HC_comp Proyecto Full-Stack • Versión 0.1v</span>
+      {/* MODAL DE CADASTRO */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <h3 className="text-lg font-bold">
+              {modalType === 'peca' ? 'Cadastrar Peça Pronta' : 'Cadastrar Estampa Avulsa'}
+            </h3>
+            
+            <form onSubmit={handleSalvarModal} className="space-y-4 text-xs font-medium">
+              
+              <div>
+                <label className="block text-slate-500 mb-1">Marca</label>
+                <select
+                  value={formData.brand_id || ''}
+                  onChange={(e) => setFormData({...formData, brand_id: e.target.value})}
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
+                  required
+                >
+                  {brands.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {modalType === 'peca' ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-500 mb-1">Tipo de Peça</label>
+                      <select
+                        value={formData.tipo || 'CM'}
+                        onChange={(e) => setFormData({...formData, tipo: e.target.value})}
+                        className="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
+                      >
+                        <option value="CM">CM (Camisa Masc)</option>
+                        <option value="CF">CF (Camisa Fem)</option>
+                        <option value="MO">MO (Moletom)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-500 mb-1">Cód. Estampa (NUM-COR)</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: 001-PRE"
+                        value={formData.codigo_estampa || ''}
+                        onChange={(e) => setFormData({...formData, codigo_estampa: e.target.value.toUpperCase()})}
+                        className="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono uppercase"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-500 mb-1">Cor</label>
+                      <select
+                        value={formData.cor || 'PRE'}
+                        onChange={(e) => setFormData({...formData, cor: e.target.value})}
+                        className="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
+                      >
+                        <option value="PRE">PRE (Preto)</option>
+                        <option value="BRA">BRA (Branca)</option>
+                        <option value="AMA">AMA (Amarelo)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-500 mb-1">Tamanho</label>
+                      <select
+                        value={formData.tamanho || 'M'}
+                        onChange={(e) => setFormData({...formData, tamanho: e.target.value})}
+                        className="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
+                      >
+                        {['P', 'M', 'G', 'GG', 'G1', 'G2', 'G3', 'G4'].map(t => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-500 mb-1">SKU Gerado</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: CM-001-PRE-M"
+                      value={formData.sku || `${formData.tipo || 'CM'}-${formData.codigo_estampa || '001-PRE'}-${formData.tamanho || 'M'}`}
+                      onChange={(e) => setFormData({...formData, sku: e.target.value.toUpperCase()})}
+                      className="w-full p-3 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono uppercase font-bold text-indigo-600 dark:text-indigo-400"
+                      required
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-slate-500 mb-1">Código Estampa (NUM-COR)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 005-PRE"
+                      value={formData.codigo_estampa || ''}
+                      onChange={(e) => setFormData({...formData, codigo_estampa: e.target.value.toUpperCase()})}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono uppercase"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-500 mb-1">Nome do Design</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Caveira Heavy Metal"
+                      value={formData.nome_design || ''}
+                      onChange={(e) => setFormData({...formData, nome_design: e.target.value})}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-500 mb-1">Cor</label>
+                    <select
+                      value={formData.cor || 'PRE'}
+                      onChange={(e) => setFormData({...formData, cor: e.target.value})}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
+                    >
+                      <option value="PRE">PRE (Preto)</option>
+                      <option value="BRA">BRA (Branca)</option>
+                      <option value="AMA">AMA (Amarelo)</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label className="block text-slate-500 mb-1">Quantidade Inicial</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.quantidade ?? 0}
+                  onChange={(e) => setFormData({...formData, quantidade: Number(e.target.value)})}
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/20"
+                >
+                  Salvar No Estoque
+                </button>
+              </div>
+
+            </form>
           </div>
-          <p>© {new Date().getFullYear()} HC_comp. Estructura base lista para desarrollo.</p>
+        </div>
+      )}
+
+      {/* FOOTER */}
+      <footer className="border-t border-slate-200 dark:border-slate-900 py-6 bg-white dark:bg-slate-950 text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p>© {new Date().getFullYear()} HC_comp • Sistema de Gestão de Estoque (pt-BR)</p>
+          <div className="flex items-center gap-4 text-slate-400">
+            <span>Clube Rock (cluberock.com.br)</span>
+            <span>•</span>
+            <span>Ride Nation (ridenation.com.br)</span>
+          </div>
         </div>
       </footer>
+
     </div>
   );
 }

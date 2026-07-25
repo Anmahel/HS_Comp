@@ -1,0 +1,73 @@
+Aquí tienes la versión del prompt actualizada incorporando exactamente esos 3 ajustes:
+
+1. **Tema Claro/Oscuro (Toggle Sol/Luna)** en React + Tailwind CSS.
+2. **Idioma 100% en Portugués de Brasil (pt-BR)** para la interfaz, alertas, nombres de estados y variables del negocio.
+3. **Control de Inventario Simplificado**: Solo se gestionan **Estampas** y **Camisas/Moletons Prontos** (ya estampados). Se excluye el control de prendas lisas por el momento.
+
+---
+
+### Prompt Final Optimizado (Listo para copiar y pegar)
+
+```text
+Atue como um Arquiteto de Software Senior e Desenvolvedor Full-Stack. Preciso que você gere a arquitetura de banco de dados (SQLAlchemy), as APIs em Python Flask e a interface de usuário em React, Vite e Tailwind CSS para um Sistema de Gestão de Estoque voltado a e-commerce de moda e impressão sob demanda.
+
+### Contexto do Negócio e Idioma
+O sistema estará totalmente em Português do Brasil (pt-BR) na interface do usuário e mensagens do sistema. Ele gerenciará o estoque físico de 2 marcas hospedadas na Shopify Brasil:
+1. Clube Rock (Marca Principal): https://www.cluberock.com.br/
+2. Ride Nation: https://www.ridenation.com.br/
+
+O objetivo principal é consultar se um pedido (recebido via PDF/Excel do suporte) pode ser despachado imediatamente porque a peça já está PRONTA (estampada) ou se existe a ESTAMPA avulsa disponível no estoque para montagem rápida.
+
+Nesta fase inicial, NÃO controlaremos o estoque de camisetas lisas/base. Controlaremos apenas:
+1. Estampas avulsas.
+2. Peças Prontas (Camisetas/Moletons já estampados e prontos para envio).
+
+### Regras de Regras de Negócio e Estrutura de SKUs
+Cada produto ou insumo segue estritamente a nomenclatura oficial (Formato: TIPO-NUM-COR-TAMANHO):
+
+1. Tipos de Peça (TIPO):
+   - CM: Camisa Masculino (Tamanhos: P, M, G, GG, G1, G2, G3, G4)
+   - CF: Camisa Feminino (Tamanhos: P, M, G, GG, G1, G2)
+   - MO: Moletom (Unissex)
+
+2. Cores Disponíveis (COR):
+   - PRE: Preto
+   - BRA: Branca
+   - AMA: Amarelo
+
+3. Estampas (Insumo individual):
+   - Código no formato "NUM-COR" (Exemplo: 001-PRE). O "NUM" é um número único de 3 dígitos (X) associado ao design da estampa.
+
+4. Peça Pronta (Produto Final Estampado):
+   - Código SKU completo (Exemplos: MO-000-PRE-P, CF-001-AMA-M, CM-002-BRA-GG).
+
+### Funcionalidades Requeridas (CRUD & Lógica)
+1. Interface em Português (pt-BR) com suporte a Tema Claro e Escuro (Toggle Sol/Lua) usando Tailwind CSS.
+2. Operações CRUD Completas: Criar, buscar (por SKU, marca, tipo, tamanho, cor ou código da estampa), atualizar quantidades e deletar registros.
+3. Verificador de Disponibilidade / Pronto para Envio:
+   - Entrada: Busca de SKU (ex: CM-001-PRE-M).
+   - Saída visual no Frontend:
+     a) Quantidade da PEÇA PRONTA disponível em estoque.
+     b) Se a Peça Pronta estiver zerada (Estoque 0), verificar se existe a ESTAMPA avulsa correspondente (ex: 001-PRE) para indicar se a peça pode ser montada imediatamente.
+4. Filtro por Marca (Clube Rock / Ride Nation).
+
+### Stack Tecnológico Fixo
+O ambiente já está pré-configurado e gerenciado com Bun e UV. Gere o código adaptado estritamente a esta infraestrutura:
+- Backend: Python Flask com SQLAlchemy (ORM) e SQLite/PostgreSQL.
+- Frontend: React (Vite) estilizado com Tailwind CSS.
+
+### Entregáveis Esperados
+1. Modelos SQLAlchemy (`models.py`):
+   - Tabelas para Marcas, Estampas (Insumo) e Peças Prontas (Produto Final).
+2. Script de Estrutura SQL / Migração limpa.
+3. Rotas da API Flask (`app.py` / Blueprints):
+   - Endpoints para CRUD de Estampas e Peças Prontas.
+   - Endpoint de verificação rápida de disponibilidade (Peça Pronta vs. Estampa Avulsa).
+4. Componentes Frontend React (Tailwind CSS, pt-BR):
+   - Botão Toggle de Tema (Modo Claro / Modo Escuro com ícones de Sol e Lua).
+   - Painel de busca rápida por SKU com badges visuais em português ("Pronto para Envio", "Disponível para Estampar", "Sem Estoque").
+   - Formulário de atualização e cadastro de itens no estoque.
+
+Gere um código limpo, modular, bem documentado e pronto para integração.
+
+```
