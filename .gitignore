@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# Environment & local settings
+.env
+.env.local
+*.db
+*.sqlite3
+
+# Build outputs
+dist/
+build/
+.vercel
+
+# Logs & OS
+*.log
+.DS_Store
+.vscode/
+.idea/

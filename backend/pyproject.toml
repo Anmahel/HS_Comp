@@ -1,0 +1,13 @@
+[project]
+name = "hc-comp-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "flask>=3.1.3",
+    "flask-cors>=6.0.5",
+    "flask-sqlalchemy>=3.1.1",
+    "gunicorn>=26.0.0",
+    "python-dotenv>=1.2.2",
+]
