@@ -1,0 +1,19 @@
+en el componente BuscaSKU.jsx esta un apartado llamado 
+ {/* Chips de Exemplo */}
+      <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 text-xs">
+        <span className="text-slate-400 font-medium w-full sm:w-auto text-center">Recente</span>
+        {exemploSKUs.map((exSku) => (
+          <button
+            key={exSku}
+            type="button"
+            onClick={() => { setSkuSearch(exSku); }}
+            className="px-2.5 py-1 bg-slate-200/60 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-slate-700 font-mono rounded-lg transition-colors text-slate-700 dark:text-slate-300 text-[11px]"
+          >
+            {exSku}
+          </button>
+        ))}
+      </div>
+      yo lo que quiero es que muestre las 2 ultimas 
+      busquedas que se han echo y cada vez que el usuario busque 
+      se actualiza ese componente pero que solo  muestre los  2 ultimos
+      
