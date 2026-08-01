@@ -201,6 +201,7 @@ def create_app():
     @app.route("/api/verificar-disponibilidade", methods=["GET"])
     def verificar_disponibilidade():
         termo = request.args.get("sku", "").strip()
+        termo_upper = termo.upper() if termo else ""
         brand_id = request.args.get("brand_id", type=int)
         brand_prefix = request.args.get("brand_prefix", "").strip().upper()
         cor = request.args.get("cor", "").strip().upper()

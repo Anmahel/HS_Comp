@@ -267,16 +267,22 @@ export function useEstoque() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (res.ok) {
-        setShowModal(false);
-        setFormData({});
-        if (modalType === 'peca') fetchPecasProntas();
-        else fetchEstampas();
-        handleVerificarSKU();
-      } else {
-        const errData = await res.json();
-        alert(errData.erro || 'Erro ao salvar registro');
+
+      if (!res.ok) {
+        let errorMsg = 'Erro ao salvar registro';
+        try {
+          const errData = await res.json();
+          errorMsg = errData.erro || errorMsg;
+        } catch (_) {}
+        alert(errorMsg);
+        return;
       }
+
+      setShowModal(false);
+      setFormData({});
+      if (modalType === 'peca') fetchPecasProntas();
+      else fetchEstampas();
+      handleVerificarSKU();
     } catch (err) {
       console.error('Erro no salvamento:', err);
     } finally {
@@ -292,15 +298,21 @@ export function useEstoque() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ categoria, id, quantidade: cantidad })
       });
-      const data = await res.json();
-      if (res.ok) {
-        fetchPecasProntas();
-        fetchEstampas();
-        handleVerificarSKU();
-        return { success: true, message: data.mensagem };
-      } else {
-        return { success: false, message: data.erro || 'Erro ao dar baixa no estoque' };
+
+      if (!res.ok) {
+        let errorMsg = 'Erro ao dar baixa no estoque';
+        try {
+          const errData = await res.json();
+          errorMsg = errData.erro || errorMsg;
+        } catch (_) {}
+        return { success: false, message: errorMsg };
       }
+
+      const data = await res.json();
+      fetchPecasProntas();
+      fetchEstampas();
+      handleVerificarSKU();
+      return { success: true, message: data.mensagem };
     } catch (err) {
       console.error('Erro ao usar estoque:', err);
       return { success: false, message: 'Erro na conexão com o servidor' };

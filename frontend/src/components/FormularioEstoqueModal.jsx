@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { generateSku } from '../utils/sku';
 
 export default function FormularioEstoqueModal({
@@ -11,15 +11,6 @@ export default function FormularioEstoqueModal({
   handleSalvarModal,
   isSubmitting
 }) {
-  useEffect(() => {
-    if (showModal && modalType === 'peca') {
-      const calculated = generateSku(formData, brands);
-      if (formData.sku !== calculated) {
-        setFormData(prev => ({ ...prev, sku: calculated }));
-      }
-    }
-  }, [showModal, modalType, formData.brand_id, formData.tipo, formData.codigo_estampa, formData.cor, formData.tamanho, brands]);
-
   if (!showModal) return null;
 
   const isEditing = Boolean(formData.id);
@@ -40,7 +31,7 @@ export default function FormularioEstoqueModal({
             <select
               id="modal-brand-select"
               value={formData.brand_id || ''}
-              onChange={(e) => setFormData({ ...formData, brand_id: e.target.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, brand_id: e.target.value }))}
               className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
               required
             >
@@ -58,7 +49,7 @@ export default function FormularioEstoqueModal({
                   <select
                     id="modal-tipo-select"
                     value={formData.tipo || 'CM'}
-                    onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, tipo: e.target.value }))}
                     className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
                   >
                     <option value="CM">CM (Camisa Masc)</option>
@@ -75,8 +66,11 @@ export default function FormularioEstoqueModal({
                     pattern="[0-9]*"
                     placeholder="Ex: 001"
                     value={formData.codigo_estampa || ''}
-                    onChange={(e) => setFormData({ ...formData, codigo_estampa: e.target.value.replace(/\D/g, '') })}
-                    className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono uppercase focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setFormData(prev => ({ ...prev, codigo_estampa: val }));
+                    }}
+                    className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono uppercase focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-colors"
                     required
                   />
                 </div>
@@ -88,7 +82,7 @@ export default function FormularioEstoqueModal({
                   <select
                     id="modal-cor-peca"
                     value={formData.cor || 'PRE'}
-                    onChange={(e) => setFormData({ ...formData, cor: e.target.value })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, cor: e.target.value }))}
                     className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
                   >
                     <option value="PRE">PRE (Preto)</option>
@@ -101,7 +95,7 @@ export default function FormularioEstoqueModal({
                   <select
                     id="modal-tamanho-peca"
                     value={formData.tamanho || 'M'}
-                    onChange={(e) => setFormData({ ...formData, tamanho: e.target.value })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, tamanho: e.target.value }))}
                     className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
                   >
                     {['P', 'M', 'G', 'GG', 'G1', 'G2', 'G3', 'G4'].map(t => (
@@ -122,9 +116,9 @@ export default function FormularioEstoqueModal({
                   value={formData.quantidade ?? ''}
                   onChange={(e) => {
                     const onlyNums = e.target.value.replace(/\D/g, '');
-                    setFormData({ ...formData, quantidade: onlyNums === '' ? '' : parseInt(onlyNums, 10) });
+                    setFormData(prev => ({ ...prev, quantidade: onlyNums === '' ? '' : parseInt(onlyNums, 10) }));
                   }}
-                  className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-colors"
                   required
                 />
               </div>
@@ -150,8 +144,8 @@ export default function FormularioEstoqueModal({
                   type="text"
                   placeholder="Ex: 005-PRE"
                   value={formData.codigo_estampa || ''}
-                  onChange={(e) => setFormData({ ...formData, codigo_estampa: e.target.value.toUpperCase() })}
-                  className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono uppercase focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                  onChange={(e) => setFormData(prev => ({ ...prev, codigo_estampa: e.target.value.toUpperCase() }))}
+                  className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono uppercase focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-colors"
                   required
                 />
               </div>
@@ -162,7 +156,7 @@ export default function FormularioEstoqueModal({
                   type="text"
                   placeholder="Ex: Caveira Heavy Metal"
                   value={formData.nome_design || ''}
-                  onChange={(e) => setFormData({ ...formData, nome_design: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, nome_design: e.target.value }))}
                   className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
                   required
                 />
@@ -172,7 +166,7 @@ export default function FormularioEstoqueModal({
                 <select
                   id="modal-cor-estampa"
                   value={formData.cor || 'PRE'}
-                  onChange={(e) => setFormData({ ...formData, cor: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, cor: e.target.value }))}
                   className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
                 >
                   <option value="PRE">PRE (Preto)</option>
@@ -192,9 +186,9 @@ export default function FormularioEstoqueModal({
                   value={formData.quantidade ?? ''}
                   onChange={(e) => {
                     const onlyNums = e.target.value.replace(/\D/g, '');
-                    setFormData({ ...formData, quantidade: onlyNums === '' ? '' : parseInt(onlyNums, 10) });
+                    setFormData(prev => ({ ...prev, quantidade: onlyNums === '' ? '' : parseInt(onlyNums, 10) }));
                   }}
-                  className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-colors"
                   required
                 />
               </div>
