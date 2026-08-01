@@ -34,22 +34,6 @@ export default function Header({
         {/* Controls: Brand Selector + Theme Toggle */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Filter by Brand */}
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
-            <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <label htmlFor="brand-filter-select" className="sr-only">Filtrar por marca</label>
-            <select
-              id="brand-filter-select"
-              aria-label="Filtrar por marca"
-              value={selectedBrand}
-              onChange={(e) => setSelectedBrand(e.target.value)}
-              className="bg-transparent font-semibold text-slate-700 dark:text-slate-200 focus:outline-none pr-1 cursor-pointer max-w-[130px] sm:max-w-none text-xs"
-            >
-              <option value="" className="bg-white dark:bg-slate-900">Marcas</option>
-              {brands.map(b => (
-                <option key={b.id} value={b.id} className="bg-white dark:bg-slate-900">{b.name}</option>
-              ))}
-            </select>
-          </div>
 
           {/* Toggle Sol / Lua */}
           <button

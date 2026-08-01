@@ -116,16 +116,6 @@ export default function BuscaSKU({
         <div className="w-full lg:col-span-8 space-y-6">
           {verificacaoResult && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  {totalItems > 0 ? `${totalItems} variante(s) encontrada(s)` : 'Resultado da consulta'}
-                </h3>
-                {verificacaoResult.termo_busca && (
-                  <span className="text-xs font-mono font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg">
-                    Termo: "{verificacaoResult.termo_busca}"
-                  </span>
-                )}
-              </div>
 
               {totalItems === 0 ? (
                 <div className="p-8 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-3 shadow-sm">

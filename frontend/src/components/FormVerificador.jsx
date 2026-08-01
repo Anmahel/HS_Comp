@@ -22,12 +22,10 @@ export default function FormVerificador({
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-indigo-500" />
           <h2 className="text-base sm:text-lg font-extrabold tracking-tight">
-            Verificador & Filtros
+            Estoque
           </h2>
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Filtre por marca, tipo e cor ou pesquise diretamente.
-        </p>
+       
       </div>
 
       <form id="form-buscar" onSubmit={onSubmitForm} className="space-y-4">
