@@ -20,9 +20,16 @@ export default function App() {
     pecasProntas,
     skuSearch,
     setSkuSearch,
+    verificadorBrand,
+    setVerificadorBrand,
+    verificadorCor,
+    setVerificadorCor,
+    verificadorTipo,
+    setVerificadorTipo,
     verificacaoResult,
     verificando,
     handleVerificarSKU,
+    handleUsarEstoque,
     showModal,
     setShowModal,
     modalType,
@@ -34,6 +41,7 @@ export default function App() {
     handleDeletarPeca,
     handleDeletarEstampa,
     handleOpenModalPeca,
+    handleOpenModalEditPeca,
     handleOpenModalEstampa,
     handleSalvarModal
   } = useEstoque();
@@ -64,7 +72,14 @@ export default function App() {
           <BuscaSKU
             skuSearch={skuSearch}
             setSkuSearch={setSkuSearch}
+            verificadorBrand={verificadorBrand}
+            setVerificadorBrand={setVerificadorBrand}
+            verificadorCor={verificadorCor}
+            setVerificadorCor={setVerificadorCor}
+            verificadorTipo={verificadorTipo}
+            setVerificadorTipo={setVerificadorTipo}
             handleVerificarSKU={handleVerificarSKU}
+            handleUsarEstoque={handleUsarEstoque}
             verificando={verificando}
             verificacaoResult={verificacaoResult}
           />
@@ -81,6 +96,7 @@ export default function App() {
             handleDeletarEstampa={handleDeletarEstampa}
             onOpenModalPeca={handleOpenModalPeca}
             onOpenModalEstampa={handleOpenModalEstampa}
+            onEditPeca={handleOpenModalEditPeca}
           />
         )}
       </main>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import BrandBadge from './BrandBadge';
 
 export default function TabelaEstampas({
   estampas,
@@ -58,7 +59,9 @@ export default function TabelaEstampas({
                       {estampa.nome_design}
                     </td>
                     <td className="px-4 sm:px-6 py-3.5">{estampa.cor}</td>
-                    <td className="px-4 sm:px-6 py-3.5 text-slate-500">{estampa.brand_name}</td>
+                    <td className="px-4 sm:px-6 py-3.5">
+                      <BrandBadge brandName={estampa.brand_name} />
+                    </td>
                     <td className="px-4 sm:px-6 py-3.5">
                       <div className="flex items-center gap-2">
                         <button

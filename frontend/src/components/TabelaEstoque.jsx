@@ -11,7 +11,8 @@ export default function TabelaEstoque({
   handleDeletarPeca,
   handleDeletarEstampa,
   onOpenModalPeca,
-  onOpenModalEstampa
+  onOpenModalEstampa,
+  onEditPeca
 }) {
   if (activeTab === 'pecas') {
     return (
@@ -20,6 +21,7 @@ export default function TabelaEstoque({
         handleAjustarQtdPeca={handleAjustarQtdPeca}
         handleDeletarPeca={handleDeletarPeca}
         onOpenModal={onOpenModalPeca}
+        onEditPeca={onEditPeca}
       />
     );
   }

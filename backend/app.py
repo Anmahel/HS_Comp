@@ -7,7 +7,7 @@ from models import db, Brand, Estampa, PecaPronta
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
-
+ 
     CORS(app, resources={r"/api/*": {"origins": "*"}})
     db.init_app(app)
 
@@ -169,12 +169,18 @@ def create_app():
             peca.quantidade = int(data["quantidade"])
         if "tipo" in data:
             peca.tipo = data["tipo"].strip().upper()
+        if "codigo_estampa" in data:
+            peca.codigo_estampa = data["codigo_estampa"].strip().upper()
         if "cor" in data:
             peca.cor = data["cor"].strip().upper()
         if "tamanho" in data:
             peca.tamanho = data["tamanho"].strip().upper()
         if "brand_id" in data:
             peca.brand_id = int(data["brand_id"])
+        if "sku" in data:
+            peca.sku = data["sku"].strip().upper()
+        else:
+            peca.sku = f"{peca.tipo}-{peca.codigo_estampa}-{peca.cor}-{peca.tamanho}"
 
         db.session.commit()
         return jsonify(peca.to_dict()), 200
@@ -189,73 +195,183 @@ def create_app():
     # -------------------------------------------------------------------
     # VERIFICADOR DE DISPONIBILIDADE (LÓGICA PRINCIPAL DO NEGÓCIO)
     # -------------------------------------------------------------------
+    # -------------------------------------------------------------------
+    # VERIFICADOR DE DISPONIBILIDADE E CONSUMO DE ESTOQUE (LÓGICA PRINCIPAL)
+    # -------------------------------------------------------------------
     @app.route("/api/verificar-disponibilidade", methods=["GET"])
     def verificar_disponibilidade():
-        sku = request.args.get("sku", "").strip().upper()
+        termo = request.args.get("sku", "").strip()
         brand_id = request.args.get("brand_id", type=int)
+        brand_prefix = request.args.get("brand_prefix", "").strip().upper()
+        cor = request.args.get("cor", "").strip().upper()
+        tipo = request.args.get("tipo", "").strip().upper()
 
-        if not sku:
-            return jsonify({"erro": "Informe o parámetro 'sku' para consulta."}), 400
+        # Determinar brand_id pelo brand_prefix se não informado brand_id
+        if brand_prefix and not brand_id:
+            if brand_prefix == "CR":
+                b = Brand.query.filter(Brand.name.ilike("%Rock%")).first()
+                if b: brand_id = b.id
+            elif brand_prefix == "RN":
+                b = Brand.query.filter(Brand.name.ilike("%Ride%")).first()
+                if b: brand_id = b.id
 
-        # Formato esperado do SKU: TIPO-NUM-COR-TAMANHO (ex: CM-001-PRE-M ou MO-002-BRA-P)
-        partes = sku.split("-")
-        
-        peca_query = PecaPronta.query.filter_by(sku=sku)
+        termo_like = f"%{termo}%" if termo else None
+
+        # 1. Buscar Peças Prontas correspondentes
+        pecas_query = PecaPronta.query.join(Brand)
         if brand_id:
-            peca_query = peca_query.filter_by(brand_id=brand_id)
-        peca = peca_query.first()
+            pecas_query = pecas_query.filter(PecaPronta.brand_id == brand_id)
+        if cor and cor != "TODOS":
+            pecas_query = pecas_query.filter(db.func.upper(PecaPronta.cor) == cor)
+        if tipo and tipo != "TODOS":
+            pecas_query = pecas_query.filter(db.func.upper(PecaPronta.tipo) == tipo)
+        
+        if termo_like:
+            pecas_query = pecas_query.filter(
+                (PecaPronta.sku.ilike(termo_like)) |
+                (PecaPronta.codigo_estampa.ilike(termo_like)) |
+                (PecaPronta.tipo.ilike(termo_like)) |
+                (PecaPronta.cor.ilike(termo_like)) |
+                (PecaPronta.tamanho.ilike(termo_like)) |
+                (Brand.name.ilike(termo_like))
+            )
+        pecas_encontradas = pecas_query.all()
 
-        peca_pronta_qtd = peca.quantidade if peca else 0
+        # 2. Buscar Estampas Avulsas correspondentes
+        estampas_query = Estampa.query.join(Brand)
+        if brand_id:
+            estampas_query = estampas_query.filter(Estampa.brand_id == brand_id)
+        if cor and cor != "TODOS":
+            estampas_query = estampas_query.filter(db.func.upper(Estampa.cor) == cor)
 
-        # Tentar extrair código da estampa
-        codigo_estampa = None
-        if peca:
-            codigo_estampa = peca.codigo_estampa
-        elif len(partes) >= 3:
-            # ex: CM-001-PRE-M -> NUM: 001, COR: PRE -> codigo_estampa: "001-PRE"
-            codigo_estampa = f"{partes[1]}-{partes[2]}"
+        if termo_like:
+            estampas_query = estampas_query.filter(
+                (Estampa.codigo_estampa.ilike(termo_like)) |
+                (Estampa.nome_design.ilike(termo_like)) |
+                (Estampa.cor.ilike(termo_like)) |
+                (Brand.name.ilike(termo_like))
+            )
+        estampas_encontradas = estampas_query.all()
 
-        estampa_qtd = 0
-        nome_estampa = "Não encontrada"
-        if codigo_estampa:
-            estampa_query = Estampa.query.filter_by(codigo_estampa=codigo_estampa)
+        # Se houver estampas por nome/código, buscar peças prontas associadas
+        codigos_estampas = [e.codigo_estampa.upper() for e in estampas_encontradas]
+        if codigos_estampas:
+            pecas_rel = PecaPronta.query.filter(
+                db.func.upper(PecaPronta.codigo_estampa).in_(codigos_estampas)
+            )
             if brand_id:
-                estampa_query = estampa_query.filter_by(brand_id=brand_id)
-            estampa = estampa_query.first()
-            if estampa:
-                estampa_qtd = estampa.quantidade
-                nome_estampa = estampa.nome_design
+                pecas_rel = pecas_rel.filter_by(brand_id=brand_id)
+            for p in pecas_rel.all():
+                if p not in pecas_encontradas:
+                    pecas_encontradas.append(p)
 
-        # Lógica de decisão dos badges
-        if peca_pronta_qtd > 0:
-            status_code = "PRONTO"
-            status_label = "Pronto para Envio"
-            badge_color = "emerald"
-            mensagem = f"Existem {peca_pronta_qtd} unidade(s) da peça pronta no estoque para despacho imediato."
-        elif estampa_qtd > 0:
-            status_code = "ESTAMPAR"
-            status_label = "Disponível para Estampar"
-            badge_color = "amber"
-            mensagem = f"Sem peça pronta, porém existem {estampa_qtd} unidade(s) da estampa avulsa ({codigo_estampa}) para montagem rápida."
-        else:
-            status_code = "SEM_ESTOQUE"
-            status_label = "Sem Estoque"
-            badge_color = "rose"
-            mensagem = "Sem unidades da peça pronta e sem estampas avulsas disponíveis no momento."
+        resultados_pecas = []
+        for p in pecas_encontradas:
+            est_assoc = Estampa.query.filter(db.func.upper(Estampa.codigo_estampa) == p.codigo_estampa.upper()).first()
+            status_code = "PRONTO" if p.quantidade > 0 else "SEM_ESTOQUE"
+            status_label = "Pronto para Envio" if p.quantidade > 0 else "Sem Estoque"
+            badge_color = "emerald" if p.quantidade > 0 else "rose"
+
+            resultados_pecas.append({
+                "categoria": "peca",
+                "id": p.id,
+                "sku": p.sku,
+                "tipo": p.tipo,
+                "codigo_estampa": p.codigo_estampa,
+                "nome_design": est_assoc.nome_design if est_assoc else "Peça Pronta",
+                "cor": p.cor,
+                "tamanho": p.tamanho,
+                "brand_id": p.brand_id,
+                "brand_name": p.brand.name if p.brand else "Geral",
+                "quantidade": p.quantidade,
+                "status_code": status_code,
+                "status_label": status_label,
+                "badge_color": badge_color
+            })
+
+        resultados_estampas = []
+        for e in estampas_encontradas:
+            status_code = "ESTAMPAR" if e.quantidade > 0 else "SEM_ESTOQUE"
+            status_label = "Disponível para Estampar" if e.quantidade > 0 else "Sem Estoque"
+            badge_color = "amber" if e.quantidade > 0 else "rose"
+
+            resultados_estampas.append({
+                "categoria": "estampa",
+                "id": e.id,
+                "sku": e.codigo_estampa,
+                "codigo_estampa": e.codigo_estampa,
+                "nome_design": e.nome_design,
+                "cor": e.cor,
+                "brand_id": e.brand_id,
+                "brand_name": e.brand.name if e.brand else "Geral",
+                "quantidade": e.quantidade,
+                "status_code": status_code,
+                "status_label": status_label,
+                "badge_color": badge_color
+            })
+
+        total_encontrados = len(resultados_pecas) + len(resultados_estampas)
+        primeiro_res = resultados_pecas[0] if resultados_pecas else (resultados_estampas[0] if resultados_estampas else None)
 
         return jsonify({
-            "sku": sku,
-            "codigo_estampa": codigo_estampa,
-            "nome_design_estampa": nome_estampa,
-            "brand_id": peca.brand_id if peca else brand_id,
-            "brand_name": peca.brand.name if peca and peca.brand else "Geral",
-            "peca_pronta_qtd": peca_pronta_qtd,
-            "estampa_qtd": estampa_qtd,
-            "status_code": status_code,
-            "status_label": status_label,
-            "badge_color": badge_color,
-            "mensagem": mensagem
+            "termo_busca": termo,
+            "total_encontrados": total_encontrados,
+            "pecas": resultados_pecas,
+            "estampas": resultados_estampas,
+            "sku": primeiro_res["sku"] if primeiro_res else termo_upper,
+            "codigo_estampa": primeiro_res["codigo_estampa"] if primeiro_res else termo_upper,
+            "nome_design_estampa": primeiro_res["nome_design"] if primeiro_res else "Não encontrada",
+            "brand_id": primeiro_res["brand_id"] if primeiro_res else brand_id,
+            "brand_name": primeiro_res["brand_name"] if primeiro_res else "Geral",
+            "peca_pronta_qtd": sum(p["quantidade"] for p in resultados_pecas),
+            "estampa_qtd": sum(e["quantidade"] for e in resultados_estampas),
+            "status_code": primeiro_res["status_code"] if primeiro_res else "SEM_ESTOQUE",
+            "status_label": primeiro_res["status_label"] if primeiro_res else "Sem Estoque",
+            "badge_color": primeiro_res["badge_color"] if primeiro_res else "rose"
         }), 200
+
+    @app.route("/api/usar-estoque", methods=["POST"])
+    def usar_estoque():
+        data = request.get_json() or {}
+        categoria = data.get("categoria")
+        item_id = data.get("id")
+        try:
+            qtd_usar = int(data.get("quantidade", 1))
+        except (ValueError, TypeError):
+            qtd_usar = 1
+
+        if not categoria or not item_id or qtd_usar <= 0:
+            return jsonify({"erro": "Informe categoria ('peca' ou 'estampa'), ID do produto e quantidade válida."}), 400
+
+        if categoria == "peca":
+            peca = PecaPronta.query.get(item_id)
+            if not peca:
+                return jsonify({"erro": "Peça pronta não encontrada no estoque."}), 404
+            if peca.quantidade < qtd_usar:
+                return jsonify({"erro": f"Estoque insuficiente. Disponível: {peca.quantidade}, solicitado: {qtd_usar}"}), 400
+            
+            peca.quantidade -= qtd_usar
+            db.session.commit()
+            return jsonify({
+                "mensagem": f"Sucesso! {qtd_usar} unidade(s) de '{peca.sku}' baixada(s) do estoque.",
+                "item": peca.to_dict()
+            }), 200
+
+        elif categoria == "estampa":
+            estampa = Estampa.query.get(item_id)
+            if not estampa:
+                return jsonify({"erro": "Estampa avulsa não encontrada no estoque."}), 404
+            if estampa.quantidade < qtd_usar:
+                return jsonify({"erro": f"Estoque insuficiente. Disponível: {estampa.quantidade}, solicitado: {qtd_usar}"}), 400
+            
+            estampa.quantidade -= qtd_usar
+            db.session.commit()
+            return jsonify({
+                "mensagem": f"Sucesso! {qtd_usar} unidade(s) da estampa '{estampa.codigo_estampa}' baixada(s) do estoque.",
+                "item": estampa.to_dict()
+            }), 200
+
+        return jsonify({"erro": "Categoria inválida para consumo."}), 400
 
     return app
 
@@ -278,14 +394,14 @@ def seed_initial_data():
         db.session.commit()
 
         # Seed Peças Prontas para Clube Rock
-        p1 = PecaPronta(sku="CM-001-PRE-M", tipo="CM", codigo_estampa="001-PRE", cor="PRE", tamanho="M", quantidade=4, brand_id=b1.id)
-        p2 = PecaPronta(sku="CM-001-PRE-G", tipo="CM", codigo_estampa="001-PRE", cor="PRE", tamanho="G", quantidade=0, brand_id=b1.id)
-        p3 = PecaPronta(sku="MO-002-BRA-L", tipo="MO", codigo_estampa="002-BRA", cor="BRA", tamanho="GG", quantidade=2, brand_id=b1.id)
+        p1 = PecaPronta(sku="CR-CM-001-PRE-M", tipo="CM", codigo_estampa="001-PRE", cor="PRE", tamanho="M", quantidade=4, brand_id=b1.id)
+        p2 = PecaPronta(sku="CR-CM-001-PRE-G", tipo="CM", codigo_estampa="001-PRE", cor="PRE", tamanho="G", quantidade=0, brand_id=b1.id)
+        p3 = PecaPronta(sku="CR-MO-002-BRA-L", tipo="MO", codigo_estampa="002-BRA", cor="BRA", tamanho="GG", quantidade=2, brand_id=b1.id)
 
         # Seed Peças Prontas para Ride Nation
-        p4 = PecaPronta(sku="CM-010-PRE-G", tipo="CM", codigo_estampa="010-PRE", cor="PRE", tamanho="G", quantidade=3, brand_id=b2.id)
-        p5 = PecaPronta(sku="CF-011-BRA-M", tipo="CF", codigo_estampa="011-BRA", cor="BRA", tamanho="M", quantidade=0, brand_id=b2.id)
-        p6 = PecaPronta(sku="MO-010-PRE-P", tipo="MO", codigo_estampa="010-PRE", cor="PRE", tamanho="P", quantidade=0, brand_id=b2.id)
+        p4 = PecaPronta(sku="RN-CM-010-PRE-G", tipo="CM", codigo_estampa="010-PRE", cor="PRE", tamanho="G", quantidade=3, brand_id=b2.id)
+        p5 = PecaPronta(sku="RN-CF-011-BRA-M", tipo="CF", codigo_estampa="011-BRA", cor="BRA", tamanho="M", quantidade=0, brand_id=b2.id)
+        p6 = PecaPronta(sku="RN-MO-010-PRE-P", tipo="MO", codigo_estampa="010-PRE", cor="PRE", tamanho="P", quantidade=0, brand_id=b2.id)
 
         db.session.add_all([p1, p2, p3, p4, p5, p6])
         db.session.commit()

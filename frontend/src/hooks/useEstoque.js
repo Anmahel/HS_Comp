@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { generateSku } from '../utils/sku';
 
 export function useEstoque() {
   // Theme state: dark or light
@@ -18,7 +19,10 @@ export function useEstoque() {
   const [pecasProntas, setPecasProntas] = useState([]);
 
   // Verificador / Quick SKU Search
-  const [skuSearch, setSkuSearch] = useState('CM-001-PRE-M');
+  const [skuSearch, setSkuSearch] = useState('001');
+  const [verificadorBrand, setVerificadorBrand] = useState('CR');
+  const [verificadorCor, setVerificadorCor] = useState('TODOS');
+  const [verificadorTipo, setVerificadorTipo] = useState('CM');
   const [verificacaoResult, setVerificacaoResult] = useState(null);
   const [verificando, setVerificando] = useState(false);
 
@@ -101,11 +105,10 @@ export function useEstoque() {
   // Execute SKU Search Verification
   const handleVerificarSKU = async (e) => {
     if (e) e.preventDefault();
-    if (!skuSearch.trim()) return;
 
     setVerificando(true);
     try {
-      const url = `/api/verificar-disponibilidade?sku=${encodeURIComponent(skuSearch.trim())}${selectedBrand ? `&brand_id=${selectedBrand}` : ''}`;
+      const url = `/api/verificar-disponibilidade?sku=${encodeURIComponent(skuSearch.trim())}&brand_prefix=${encodeURIComponent(verificadorBrand)}&cor=${encodeURIComponent(verificadorCor)}&tipo=${encodeURIComponent(verificadorTipo)}`;
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -118,15 +121,14 @@ export function useEstoque() {
     }
   };
 
-  // Auto verify default SKU on load / brand change
+  // Auto verify default SKU on load / brand change / filter change
   useEffect(() => {
     let ignore = false;
 
     const executeCheck = async () => {
-      if (!skuSearch.trim()) return;
       setVerificando(true);
       try {
-        const url = `/api/verificar-disponibilidade?sku=${encodeURIComponent(skuSearch.trim())}${selectedBrand ? `&brand_id=${selectedBrand}` : ''}`;
+        const url = `/api/verificar-disponibilidade?sku=${encodeURIComponent(skuSearch.trim())}&brand_prefix=${encodeURIComponent(verificadorBrand)}&cor=${encodeURIComponent(verificadorCor)}&tipo=${encodeURIComponent(verificadorTipo)}`;
         const res = await fetch(url);
         if (res.ok && !ignore) {
           const data = await res.json();
@@ -144,7 +146,7 @@ export function useEstoque() {
     return () => {
       ignore = true;
     };
-  }, [selectedBrand, skuSearch]);
+  }, [skuSearch, verificadorBrand, verificadorCor, verificadorTipo]);
 
   // Adjust Quantity (+1 or -1)
   const handleAjustarQtdPeca = async (id, delta) => {
@@ -215,6 +217,21 @@ export function useEstoque() {
     setShowModal(true);
   };
 
+  const handleOpenModalEditPeca = (peca) => {
+    setModalType('peca');
+    setFormData({
+      id: peca.id,
+      tipo: peca.tipo || 'CM',
+      codigo_estampa: peca.codigo_estampa || '',
+      cor: peca.cor || 'PRE',
+      tamanho: peca.tamanho || 'M',
+      quantidade: peca.quantidade ?? 0,
+      brand_id: peca.brand_id || brands[0]?.id || 1,
+      sku: peca.sku || ''
+    });
+    setShowModal(true);
+  };
+
   const handleOpenModalEstampa = () => {
     setModalType('estampa');
     setFormData({ cor: 'PRE', quantidade: 10, brand_id: brands[0]?.id || 1 });
@@ -227,16 +244,28 @@ export function useEstoque() {
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    const endpoint = modalType === 'peca' ? '/api/pecas-prontas' : '/api/estampas';
+    const isEditing = Boolean(formData.id);
+    const endpoint = isEditing
+      ? (modalType === 'peca' ? `/api/pecas-prontas/${formData.id}` : `/api/estampas/${formData.id}`)
+      : (modalType === 'peca' ? '/api/pecas-prontas' : '/api/estampas');
+    const method = isEditing ? 'PUT' : 'POST';
+
     try {
+      const calculatedSku = modalType === 'peca'
+        ? generateSku(formData, brands)
+        : undefined;
+
+      const payload = {
+        ...formData,
+        ...(modalType === 'peca' ? { sku: calculatedSku } : {}),
+        quantidade: formData.quantidade !== '' ? Math.max(0, parseInt(formData.quantidade, 10) || 0) : 0,
+        brand_id: Number(formData.brand_id || brands[0]?.id || 1)
+      };
+
       const res = await fetch(endpoint, {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          quantidade: formData.quantidade !== '' ? Math.max(0, parseInt(formData.quantidade, 10) || 0) : 0,
-          brand_id: Number(formData.brand_id || brands[0]?.id || 1)
-        })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         setShowModal(false);
@@ -255,6 +284,29 @@ export function useEstoque() {
     }
   };
 
+  // Handle Stock Consumption (Usar / Dar Baixa)
+  const handleUsarEstoque = async (categoria, id, cantidad) => {
+    try {
+      const res = await fetch('/api/usar-estoque', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoria, id, quantidade: cantidad })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        fetchPecasProntas();
+        fetchEstampas();
+        handleVerificarSKU();
+        return { success: true, message: data.mensagem };
+      } else {
+        return { success: false, message: data.erro || 'Erro ao dar baixa no estoque' };
+      }
+    } catch (err) {
+      console.error('Erro ao usar estoque:', err);
+      return { success: false, message: 'Erro na conexão com o servidor' };
+    }
+  };
+
   return {
     theme,
     toggleTheme,
@@ -267,9 +319,16 @@ export function useEstoque() {
     pecasProntas,
     skuSearch,
     setSkuSearch,
+    verificadorBrand,
+    setVerificadorBrand,
+    verificadorCor,
+    setVerificadorCor,
+    verificadorTipo,
+    setVerificadorTipo,
     verificacaoResult,
     verificando,
     handleVerificarSKU,
+    handleUsarEstoque,
     showModal,
     setShowModal,
     modalType,
@@ -281,6 +340,7 @@ export function useEstoque() {
     handleDeletarPeca,
     handleDeletarEstampa,
     handleOpenModalPeca,
+    handleOpenModalEditPeca,
     handleOpenModalEstampa,
     handleSalvarModal
   };

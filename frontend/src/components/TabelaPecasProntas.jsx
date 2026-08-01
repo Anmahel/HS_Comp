@@ -1,11 +1,13 @@
 import React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Pencil } from 'lucide-react';
+import BrandBadge from './BrandBadge';
 
 export default function TabelaPecasProntas({
   pecasProntas,
   handleAjustarQtdPeca,
   handleDeletarPeca,
-  onOpenModal
+  onOpenModal,
+  onEditPeca
 }) {
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -35,11 +37,11 @@ export default function TabelaPecasProntas({
               <tr>
                 <th className="px-4 sm:px-6 py-3.5">SKU Completo</th>
                 <th className="px-4 sm:px-6 py-3.5">Tipo</th>
-                <th className="px-4 sm:px-6 py-3.5">Cód. Estampa</th>
+                <th className="px-4 sm:px-6 py-3.5">Estampa</th>
                 <th className="px-4 sm:px-6 py-3.5">Cor</th>
                 <th className="px-4 sm:px-6 py-3.5">Tamanho</th>
                 <th className="px-4 sm:px-6 py-3.5">Marca</th>
-                <th className="px-4 sm:px-6 py-3.5">Qtd Estoque</th>
+                <th className="px-4 sm:px-6 py-3.5">Estoque</th>
                 <th className="px-4 sm:px-6 py-3.5 text-right">Ações</th>
               </tr>
             </thead>
@@ -68,7 +70,9 @@ export default function TabelaPecasProntas({
                     <td className="px-4 sm:px-6 py-3.5">
                       <span className="font-bold">{peca.tamanho}</span>
                     </td>
-                    <td className="px-4 sm:px-6 py-3.5 text-slate-500">{peca.brand_name}</td>
+                    <td className="px-4 sm:px-6 py-3.5">
+                      <BrandBadge brandName={peca.brand_name} />
+                    </td>
                     <td className="px-4 sm:px-6 py-3.5">
                       <div className="flex items-center gap-2">
                         <button
@@ -93,15 +97,26 @@ export default function TabelaPecasProntas({
                       </div>
                     </td>
                     <td className="px-4 sm:px-6 py-3.5 text-right">
-                      <button
-                        type="button"
-                        aria-label="Deletar peça pronta"
-                        onClick={() => handleDeletarPeca(peca.id)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                        title="Deletar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          aria-label="Editar peça pronta"
+                          onClick={() => onEditPeca && onEditPeca(peca)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                          title="Editar"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Deletar peça pronta"
+                          onClick={() => handleDeletarPeca(peca.id)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                          title="Deletar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

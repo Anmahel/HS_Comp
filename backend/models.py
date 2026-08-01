@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timezone
 
 db = SQLAlchemy()
 
@@ -24,6 +24,10 @@ class Brand(db.Model):
 
 class Estampa(db.Model):
     __tablename__ = 'estampas'
+    __table_args__ = (
+        # Evita duplicar el código de estampa dentro de la misma marca
+        db.UniqueConstraint('codigo_estampa', 'brand_id', name='uq_estampa_brand'),
+    )
     
     id = db.Column(db.Integer, primary_key=True)
     codigo_estampa = db.Column(db.String(20), nullable=False, index=True) # Ex: "001-PRE"
@@ -31,8 +35,8 @@ class Estampa(db.Model):
     cor = db.Column(db.String(10), nullable=False)                         # PRE, BRA, AMA
     quantidade = db.Column(db.Integer, default=0, nullable=False)
     brand_id = db.Column(db.Integer, db.ForeignKey('brands.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
         return {
@@ -57,8 +61,8 @@ class PecaPronta(db.Model):
     tamanho = db.Column(db.String(10), nullable=False)                     # P, M, G, GG, G1, G2, G3, G4
     quantidade = db.Column(db.Integer, default=0, nullable=False)
     brand_id = db.Column(db.Integer, db.ForeignKey('brands.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
         return {
