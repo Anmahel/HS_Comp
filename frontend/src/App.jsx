@@ -18,6 +18,7 @@ export default function App() {
     setSelectedBrand,
     estampas,
     pecasProntas,
+    designs,
     skuSearch,
     setSkuSearch,
     verificadorBrand,
@@ -43,6 +44,7 @@ export default function App() {
     handleOpenModalPeca,
     handleOpenModalEditPeca,
     handleOpenModalEstampa,
+    handleOpenModalEditEstampa,
     handleSalvarModal
   } = useEstoque();
 
@@ -97,6 +99,7 @@ export default function App() {
             onOpenModalPeca={handleOpenModalPeca}
             onOpenModalEstampa={handleOpenModalEstampa}
             onEditPeca={handleOpenModalEditPeca}
+            onEditEstampa={handleOpenModalEditEstampa}
           />
         )}
       </main>
@@ -109,6 +112,9 @@ export default function App() {
         formData={formData}
         setFormData={setFormData}
         brands={brands}
+        pecasProntas={pecasProntas}
+        estampas={estampas}
+        designs={designs}
         handleSalvarModal={handleSalvarModal}
         isSubmitting={isSubmitting}
       />

@@ -3,7 +3,7 @@ import { Plus, Trash2, Pencil } from 'lucide-react';
 import BrandBadge from './BrandBadge';
 
 export default function TabelaPecasProntas({
-  pecasProntas,
+  pecasProntas = [],
   handleAjustarQtdPeca,
   handleDeletarPeca,
   onOpenModal,
@@ -38,17 +38,16 @@ export default function TabelaPecasProntas({
                 <th className="px-4 sm:px-6 py-3.5">SKU Completo</th>
                 <th className="px-4 sm:px-6 py-3.5">Tipo</th>
                 <th className="px-4 sm:px-6 py-3.5">Estampa</th>
-                <th className="px-4 sm:px-6 py-3.5">Cor</th>
                 <th className="px-4 sm:px-6 py-3.5">Tamanho</th>
                 <th className="px-4 sm:px-6 py-3.5">Marca</th>
-                <th className="px-4 sm:px-6 py-3.5">Estoque</th>
+                <th className="px-4 sm:px-6 py-3.5 text-center">Estoque</th>
                 <th className="px-4 sm:px-6 py-3.5 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
               {pecasProntas.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-8 text-center text-slate-400">
+                  <td colSpan="7" className="px-6 py-8 text-center text-slate-400">
                     Nenhuma peça pronta cadastrada para esta seleção.
                   </td>
                 </tr>
@@ -60,41 +59,22 @@ export default function TabelaPecasProntas({
                     </td>
                     <td className="px-4 sm:px-6 py-3.5">
                       <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold">
-                        {peca.tipo}
+                        {peca.tipo || peca.tipo_codigo}
                       </span>
                     </td>
-                    <td className="px-4 sm:px-6 py-3.5 font-mono text-indigo-600 dark:text-indigo-400 font-bold">
-                      {peca.codigo_estampa}
+                    <td className="px-4 sm:px-6 py-3.5 font-semibold text-slate-900 dark:text-white">
+                      {peca.nome_design || `Estampa ${peca.codigo_estampa}`}
                     </td>
-                    <td className="px-4 sm:px-6 py-3.5">{peca.cor}</td>
                     <td className="px-4 sm:px-6 py-3.5">
                       <span className="font-bold">{peca.tamanho}</span>
                     </td>
                     <td className="px-4 sm:px-6 py-3.5">
                       <BrandBadge brandName={peca.brand_name} />
                     </td>
-                    <td className="px-4 sm:px-6 py-3.5">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          aria-label="Diminuir quantidade de peça pronta"
-                          onClick={() => handleAjustarQtdPeca(peca.id, -1)}
-                          className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold transition-colors"
-                        >
-                          -
-                        </button>
-                        <span className={`w-8 text-center font-bold text-sm ${peca.quantidade === 0 ? 'text-rose-500' : ''}`}>
-                          {peca.quantidade}
-                        </span>
-                        <button
-                          type="button"
-                          aria-label="Aumentar quantidade de peça pronta"
-                          onClick={() => handleAjustarQtdPeca(peca.id, 1)}
-                          className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold transition-colors"
-                        >
-                          +
-                        </button>
-                      </div>
+                    <td className="px-4 sm:px-6 py-3.5 text-center font-bold text-sm">
+                      <span className={peca.quantidade === 0 ? 'text-rose-500 font-extrabold' : 'text-slate-900 dark:text-white'}>
+                        {peca.quantidade}
+                      </span>
                     </td>
                     <td className="px-4 sm:px-6 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1">

@@ -10,13 +10,12 @@ export function useEstoque() {
   // Active Tab: 'verificador' | 'pecas' | 'estampas'
   const [activeTab, setActiveTab] = useState('verificador');
 
-  // Brands State
+  // Data States
   const [brands, setBrands] = useState([]);
   const [selectedBrand, setSelectedBrand] = useState(''); // '' = Todas
-
-  // Data States
   const [estampas, setEstampas] = useState([]);
   const [pecasProntas, setPecasProntas] = useState([]);
+  const [designs, setDesigns] = useState([]);
 
   // Verificador / Quick SKU Search
   const [skuSearch, setSkuSearch] = useState('001');
@@ -88,6 +87,18 @@ export function useEstoque() {
     }
   }, [selectedBrand]);
 
+  const fetchDesigns = useCallback(async (isCancelled = () => false) => {
+    try {
+      const res = await fetch('/api/designs');
+      if (res.ok && !isCancelled()) {
+        const data = await res.json();
+        if (!isCancelled()) setDesigns(data);
+      }
+    } catch (err) {
+      if (!isCancelled()) console.error('Erro ao buscar designs:', err);
+    }
+  }, []);
+
   // Fetch initial data with cancellation flag
   useEffect(() => {
     let ignore = false;
@@ -96,11 +107,12 @@ export function useEstoque() {
     fetchBrands(isCancelled);
     fetchEstampas(selectedBrand, isCancelled);
     fetchPecasProntas(selectedBrand, isCancelled);
+    fetchDesigns(isCancelled);
 
     return () => {
       ignore = true;
     };
-  }, [selectedBrand, fetchBrands, fetchEstampas, fetchPecasProntas]);
+  }, [selectedBrand, fetchBrands, fetchEstampas, fetchPecasProntas, fetchDesigns]);
 
   // Execute SKU Search Verification
   const handleVerificarSKU = async (e) => {
@@ -238,6 +250,19 @@ export function useEstoque() {
     setShowModal(true);
   };
 
+  const handleOpenModalEditEstampa = (estampa) => {
+    setModalType('estampa');
+    setFormData({
+      id: estampa.id,
+      codigo_estampa: estampa.codigo_estampa || '',
+      nome_design: estampa.nome_design || '',
+      cor: estampa.cor || 'PRE',
+      quantidade: estampa.quantidade ?? 0,
+      brand_id: estampa.brand_id || brands[0]?.id || 1
+    });
+    setShowModal(true);
+  };
+
   // Form Submission with re-entry guard
   const handleSalvarModal = async (e) => {
     e.preventDefault();
@@ -280,6 +305,7 @@ export function useEstoque() {
 
       setShowModal(false);
       setFormData({});
+      fetchDesigns();
       if (modalType === 'peca') fetchPecasProntas();
       else fetchEstampas();
       handleVerificarSKU();
@@ -329,6 +355,7 @@ export function useEstoque() {
     setSelectedBrand,
     estampas,
     pecasProntas,
+    designs,
     skuSearch,
     setSkuSearch,
     verificadorBrand,
@@ -354,6 +381,7 @@ export function useEstoque() {
     handleOpenModalPeca,
     handleOpenModalEditPeca,
     handleOpenModalEstampa,
+    handleOpenModalEditEstampa,
     handleSalvarModal
   };
 }

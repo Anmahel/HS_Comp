@@ -1,5 +1,10 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { generateSku } from '../utils/sku';
+import ConfirmacaoEstoqueModal from './ConfirmacaoEstoqueModal';
+import FormularioPecaFields from './FormularioPecaFields';
+import FormularioEstampaFields from './FormularioEstampaFields';
+
+const EMPTY_ARRAY = [];
 
 export default function FormularioEstoqueModal({
   showModal,
@@ -7,213 +12,184 @@ export default function FormularioEstoqueModal({
   modalType,
   formData,
   setFormData,
-  brands,
+  brands = EMPTY_ARRAY,
+  pecasProntas = EMPTY_ARRAY,
+  estampas = EMPTY_ARRAY,
+  designs = EMPTY_ARRAY,
   handleSalvarModal,
   isSubmitting
 }) {
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  // Mapeamento bidirecional Cód. Estampa <-> Nome do Design a partir do catálogo e inventário
+  const catalogMaps = useMemo(() => {
+    const codeToDesign = {};
+    const nameToDesign = {};
+    const codeList = new Set();
+    const nameList = new Set();
+
+    (designs || []).forEach(d => {
+      const code = d.codigo_estampa || d.Cod_Estampa ? String(d.codigo_estampa || d.Cod_Estampa).trim() : '';
+      const name = d.nome_design ? d.nome_design.trim() : '';
+      if (code) {
+        codeToDesign[code.toUpperCase()] = d;
+        codeToDesign[code] = d;
+        codeList.add(code);
+      }
+      if (name) {
+        nameToDesign[name.toLowerCase()] = d;
+        nameList.add(name);
+      }
+    });
+
+    [...(pecasProntas || []), ...(estampas || [])].forEach(item => {
+      const code = item.codigo_estampa ? String(item.codigo_estampa).trim() : '';
+      const name = item.nome_design ? item.nome_design.trim() : '';
+      if (code && !codeToDesign[code.toUpperCase()]) {
+        const obj = { nome_design: name, codigo_estampa: code };
+        codeToDesign[code.toUpperCase()] = obj;
+        codeToDesign[code] = obj;
+        codeList.add(code);
+      }
+      if (name && !nameToDesign[name.toLowerCase()]) {
+        const obj = { nome_design: name, codigo_estampa: code };
+        nameToDesign[name.toLowerCase()] = obj;
+        nameList.add(name);
+      }
+    });
+
+    return {
+      codeToDesign,
+      nameToDesign,
+      codeList: Array.from(codeList),
+      nameList: Array.from(nameList)
+    };
+  }, [designs, pecasProntas, estampas]);
+
   if (!showModal) return null;
 
   const isEditing = Boolean(formData.id);
 
+  const handleCodigoEstampaChange = (val) => {
+    const upperVal = val.toUpperCase();
+    const match = catalogMaps.codeToDesign[upperVal] || catalogMaps.codeToDesign[val];
+    
+    setFormData(prev => ({
+      ...prev,
+      codigo_estampa: upperVal,
+      nome_design: match?.nome_design ? match.nome_design : prev.nome_design
+    }));
+  };
+
+  const handleNomeDesignChange = (val) => {
+    const lowerVal = val.toLowerCase().trim();
+    const match = catalogMaps.nameToDesign[lowerVal];
+
+    setFormData(prev => ({
+      ...prev,
+      nome_design: val,
+      codigo_estampa: match?.codigo_estampa ? String(match.codigo_estampa) : prev.codigo_estampa
+    }));
+  };
+
+  const handlePreSubmit = (e) => {
+    e.preventDefault();
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmSave = async (e) => {
+    setShowConfirmModal(false);
+    await handleSalvarModal(e);
+  };
+
+  const selectedBrand = brands.find(b => String(b.id) === String(formData.brand_id)) || brands[0];
+  const generatedSku = modalType === 'peca' ? generateSku(formData, brands) : null;
+
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-        <h3 className="text-base sm:text-lg font-bold">
-          {isEditing
-            ? (modalType === 'peca' ? 'Editar Peça Pronta' : 'Editar Estampa Avulsa')
-            : (modalType === 'peca' ? 'Cadastrar Peça Pronta' : 'Cadastrar Estampa Avulsa')}
-        </h3>
-        
-        <form onSubmit={handleSalvarModal} className="space-y-3.5 text-xs font-medium">
+    <>
+      <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <h3 className="text-base sm:text-lg font-bold">
+            {isEditing
+              ? (modalType === 'peca' ? 'Editar Peça Pronta' : 'Editar Estampa Avulsa')
+              : (modalType === 'peca' ? 'Cadastrar Peça Pronta' : 'Cadastrar Estampa Avulsa')}
+          </h3>
           
-          <div>
-            <label htmlFor="modal-brand-select" className="block text-slate-500 mb-1">Marca</label>
-            <select
-              id="modal-brand-select"
-              value={formData.brand_id || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, brand_id: e.target.value }))}
-              className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
-              required
-            >
-              {brands.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
+          <form onSubmit={handlePreSubmit} className="space-y-3.5 text-xs font-medium">
+            <datalist id="codigo-estampa-list">
+              {catalogMaps.codeList.map(c => (
+                <option key={c} value={c} />
               ))}
-            </select>
-          </div>
+            </datalist>
+            <datalist id="nome-design-list">
+              {catalogMaps.nameList.map(n => (
+                <option key={n} value={n} />
+              ))}
+            </datalist>
 
-          {modalType === 'peca' ? (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="modal-tipo-select" className="block text-slate-500 mb-1">Tipo de Peça</label>
-                  <select
-                    id="modal-tipo-select"
-                    value={formData.tipo || 'CM'}
-                    onChange={(e) => setFormData(prev => ({ ...prev, tipo: e.target.value }))}
-                    className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
-                  >
-                    <option value="CM">CM (Camisa Masc)</option>
-                    <option value="CF">CF (Camisa Fem)</option>
-                    <option value="MO">MO (Moletom)</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="modal-codigo-estampa-peca" className="block text-slate-500 mb-1">Cód. Estampa</label>
-                  <input
-                    id="modal-codigo-estampa-peca"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    placeholder="Ex: 001"
-                    value={formData.codigo_estampa || ''}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '');
-                      setFormData(prev => ({ ...prev, codigo_estampa: val }));
-                    }}
-                    className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono uppercase focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-colors"
-                    required
-                  />
-                </div>
-              </div>
+            <div>
+              <label htmlFor="modal-brand-select" className="block text-slate-500 mb-1">Marca</label>
+              <select
+                id="modal-brand-select"
+                value={formData.brand_id || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, brand_id: e.target.value }))}
+                className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
+                required
+              >
+                {brands.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="modal-cor-peca" className="block text-slate-500 mb-1">Cor</label>
-                  <select
-                    id="modal-cor-peca"
-                    value={formData.cor || 'PRE'}
-                    onChange={(e) => setFormData(prev => ({ ...prev, cor: e.target.value }))}
-                    className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
-                  >
-                    <option value="PRE">PRE (Preto)</option>
-                    <option value="BRA">BRA (Branca)</option>
-                    <option value="AMA">AMA (Amarelo)</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="modal-tamanho-peca" className="block text-slate-500 mb-1">Tamanho</label>
-                  <select
-                    id="modal-tamanho-peca"
-                    value={formData.tamanho || 'M'}
-                    onChange={(e) => setFormData(prev => ({ ...prev, tamanho: e.target.value }))}
-                    className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
-                  >
-                    {['P', 'M', 'G', 'GG', 'G1', 'G2', 'G3', 'G4'].map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+            {modalType === 'peca' ? (
+              <FormularioPecaFields
+                formData={formData}
+                setFormData={setFormData}
+                handleCodigoEstampaChange={handleCodigoEstampaChange}
+                handleNomeDesignChange={handleNomeDesignChange}
+                generatedSku={generatedSku}
+              />
+            ) : (
+              <FormularioEstampaFields
+                formData={formData}
+                setFormData={setFormData}
+                handleCodigoEstampaChange={handleCodigoEstampaChange}
+                handleNomeDesignChange={handleNomeDesignChange}
+              />
+            )}
 
-              <div>
-                <label htmlFor="modal-quantidade" className="block text-slate-500 mb-1">Quantidade Inicial</label>
-                <input
-                  id="modal-quantidade"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  placeholder="0"
-                  value={formData.quantidade ?? ''}
-                  onChange={(e) => {
-                    const onlyNums = e.target.value.replace(/\D/g, '');
-                    setFormData(prev => ({ ...prev, quantidade: onlyNums === '' ? '' : parseInt(onlyNums, 10) }));
-                  }}
-                  className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-colors"
-                  required
-                />
-              </div>
-
-              <div>
-                <label htmlFor="modal-sku-peca" className="block text-slate-500 mb-1">SKU Gerado</label>
-                <input
-                  id="modal-sku-peca"
-                  type="text"
-                  placeholder="Ex: CR-CM-001-PRE-M"
-                  value={generateSku(formData, brands)}
-                  readOnly
-                  className="w-full p-2.5 sm:p-3 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono uppercase font-bold text-indigo-600 dark:text-indigo-400 text-xs cursor-not-allowed opacity-90"
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <label htmlFor="modal-codigo-estampa" className="block text-slate-500 mb-1">Código Estampa (NUM-COR)</label>
-                <input
-                  id="modal-codigo-estampa"
-                  type="text"
-                  placeholder="Ex: 005-PRE"
-                  value={formData.codigo_estampa || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, codigo_estampa: e.target.value.toUpperCase() }))}
-                  className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono uppercase focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-colors"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="modal-nome-design" className="block text-slate-500 mb-1">Nome do Design</label>
-                <input
-                  id="modal-nome-design"
-                  type="text"
-                  placeholder="Ex: Caveira Heavy Metal"
-                  value={formData.nome_design || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, nome_design: e.target.value }))}
-                  className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="modal-cor-estampa" className="block text-slate-500 mb-1">Cor</label>
-                <select
-                  id="modal-cor-estampa"
-                  value={formData.cor || 'PRE'}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cor: e.target.value }))}
-                  className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl"
-                >
-                  <option value="PRE">PRE (Preto)</option>
-                  <option value="BRA">BRA (Branca)</option>
-                  <option value="AMA">AMA (Amarelo)</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="modal-quantidade" className="block text-slate-500 mb-1">Quantidade Inicial</label>
-                <input
-                  id="modal-quantidade"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  placeholder="0"
-                  value={formData.quantidade ?? ''}
-                  onChange={(e) => {
-                    const onlyNums = e.target.value.replace(/\D/g, '');
-                    setFormData(prev => ({ ...prev, quantidade: onlyNums === '' ? '' : parseInt(onlyNums, 10) }));
-                  }}
-                  className="w-full p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-colors"
-                  required
-                />
-              </div>
-            </>
-          )}
-
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={() => setShowModal(false)}
-              className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-semibold"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/20"
-            >
-              {isSubmitting ? (isEditing ? 'Atualizando...' : 'Salvar...') : (isEditing ? 'Atualizar' : 'Salvar')}
-            </button>
-          </div>
-
-        </form>
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/20 transition-colors"
+              >
+                {isSubmitting ? (isEditing ? 'Atualizando...' : 'Salvar...') : (isEditing ? 'Atualizar' : 'Salvar')}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+
+      <ConfirmacaoEstoqueModal
+        showConfirmModal={showConfirmModal}
+        setShowConfirmModal={setShowConfirmModal}
+        isEditing={isEditing}
+        modalType={modalType}
+        generatedSku={generatedSku}
+        selectedBrand={selectedBrand}
+        formData={formData}
+        handleConfirmSave={handleConfirmSave}
+        isSubmitting={isSubmitting}
+      />
+    </>
   );
 }

@@ -1,12 +1,13 @@
 import React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Pencil } from 'lucide-react';
 import BrandBadge from './BrandBadge';
 
 export default function TabelaEstampas({
   estampas,
   handleAjustarQtdEstampa,
   handleDeletarEstampa,
-  onOpenModal
+  onOpenModal,
+  onEditEstampa
 }) {
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -38,7 +39,7 @@ export default function TabelaEstampas({
                 <th className="px-4 sm:px-6 py-3.5">Nome do Design</th>
                 <th className="px-4 sm:px-6 py-3.5">Cor</th>
                 <th className="px-4 sm:px-6 py-3.5">Marca</th>
-                <th className="px-4 sm:px-6 py-3.5">Qtd Disponível</th>
+                <th className="px-4 sm:px-6 py-3.5 text-center">Qtd Disponível</th>
                 <th className="px-4 sm:px-6 py-3.5 text-right">Ações</th>
               </tr>
             </thead>
@@ -62,39 +63,32 @@ export default function TabelaEstampas({
                     <td className="px-4 sm:px-6 py-3.5">
                       <BrandBadge brandName={estampa.brand_name} />
                     </td>
-                    <td className="px-4 sm:px-6 py-3.5">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          aria-label="Diminuir quantidade de estampa"
-                          onClick={() => handleAjustarQtdEstampa(estampa.id, -1)}
-                          className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold transition-colors"
-                        >
-                          -
-                        </button>
-                        <span className={`w-8 text-center font-bold text-sm ${estampa.quantidade === 0 ? 'text-rose-500' : ''}`}>
-                          {estampa.quantidade}
-                        </span>
-                        <button
-                          type="button"
-                          aria-label="Aumentar quantidade de estampa"
-                          onClick={() => handleAjustarQtdEstampa(estampa.id, 1)}
-                          className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center font-bold transition-colors"
-                        >
-                          +
-                        </button>
-                      </div>
+                    <td className="px-4 sm:px-6 py-3.5 text-center font-bold text-sm">
+                      <span className={estampa.quantidade === 0 ? 'text-rose-500 font-extrabold' : 'text-slate-900 dark:text-white'}>
+                        {estampa.quantidade}
+                      </span>
                     </td>
                     <td className="px-4 sm:px-6 py-3.5 text-right">
-                      <button
-                        type="button"
-                        aria-label="Deletar estampa"
-                        onClick={() => handleDeletarEstampa(estampa.id)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                        title="Deletar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          aria-label="Editar estampa"
+                          onClick={() => onEditEstampa && onEditEstampa(estampa)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                          title="Editar"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Deletar estampa"
+                          onClick={() => handleDeletarEstampa(estampa.id)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                          title="Deletar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
